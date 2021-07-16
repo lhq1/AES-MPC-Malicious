@@ -56,9 +56,13 @@ class Player():
         Player.Num_player += 1
         self.ip = ip
         self.rec_port = rec_port
+        self.broadcast = None
 
     def set_ttp(self, ttp):
         Player.TTP = ttp
+
+    def set_broadcast(self, value):
+        self.broadcast = value
 
     def send_num(self,lis, target_ip, target_port):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -78,6 +82,9 @@ class Player():
         self.conn.close()
         self.rec_port += 1
         self.other = data
+
+    def after_broadcast(self):
+        return [self.broadcast[i]+self.other[i] for i in range(len(self.broadcast))]
 
     # this function is used by input_player and trusted_third_player
     # input-- inputs: list
@@ -123,7 +130,7 @@ class InputPlayer(Player):
         elif storage == 'file':
             for i in range(ComputePlayer.ComputeNum):
                 with open('key_P{}.txt'.format(i), 'w') as file:
-                    print(len(shares[i]))
+
                     file.write(str(len(shares[i])))
                     file.write('\n')
                     for j in shares[i]:
@@ -155,7 +162,6 @@ class ComputePlayer(Player):
     ComputeNum = 0
     ComputeList = []
 
-
     def __init__(self, ip='localhost', rec_port=5000):
         super().__init__(ip, rec_port)
         self.others = ComputePlayer.ComputeList[:]
@@ -165,7 +171,6 @@ class ComputePlayer(Player):
         self.compute_no = ComputePlayer.ComputeNum
         ComputePlayer.ComputeNum += 1
 
-        self.broadcast = None
         self.keys = []
         self.texts = []
         self.shares = []
@@ -175,9 +180,6 @@ class ComputePlayer(Player):
         self.input_square = []
         self.shares = []
         self.temp = []
-
-    def set_broadcast(self, value):
-        self.broadcast = value
 
     def set_shares(self, shares):
         self.shares.extend(shares)
@@ -231,6 +233,14 @@ class ComputePlayer(Player):
                 self.set_multiples(res)
             elif data == 'square':
                 self.set_squares(res)
+
+    def add_constants(self, constant, value):
+        if self.compute_no == 0:
+            temp1 = constant + value[0]
+        else:
+            temp1 = value[0]
+        temp2 = constant * self.mac + value[1]
+        return (temp1, temp2)
 
     def generate_mac(self, method='memory'):
         self.mac = gen_rand_gf256()
@@ -287,21 +297,37 @@ class ComputePlayer(Player):
         else:
             res1 = GF256(0)
         res2 = rank[0] * self.mac
-        print(multiple)
+
         for i in range(1, max_power):
             res1 += multiple[i-1][0] * rank[i]
             res2 += multiple[i-1][1] * rank[i]
         return (res1, res2)
 
     def poly_multiple_parallel(self, constants, powers, multiples, eff_dic=None):
-        global_value = [self.broadcast[i]+self.other[i] for i in range(len(self.broadcast))]
+        global_value = self.after_broadcast()
         res = []
         if not eff_dic:
             eff_dic = gen_comb_eff(powers)
-        print(len(global_value), len(multiples))
         for i in range(len(global_value)):
             res.append(self.poly_multiple_local(constants, powers, global_value[i],multiples[i], eff_dic))
         return res
+
+    def gen_input_square(self, global_z, square, degree):
+        assert (len(square) == degree+1)
+        self.input_square.append([])
+        self.input_square[-1].append(global_z)
+        for i in range(degree):
+            self.input_square[-1].append(self.input_square[-1][-1]*self.input_square[-1][-1])
+        #print(len(self.input_square[-1]))
+        for i in range(degree):
+            self.input_square[-1][i] = self.add_constants(self.input_square[-1][i], square[i])
+
+    def gen_input_square_parallel(self, square, degree):
+        self.input_square = []
+        global_z = self.after_broadcast()
+        assert (len(global_z) == len(square))
+        for i in range(len(global_z)):
+            self.gen_input_square(global_z[i], square[i], degree)
 
 
 class TrustedThirdPlayer(Player):
@@ -447,7 +473,7 @@ if __name__ == '__main__':
     for p in players:
         p.generate_mac()
     b.generate_keys()
-    a.generate_squares(8, 1)
+    a.generate_squares(8, 100, storage='file')
     a.generate_beaver_triples(10)
     a.generate_multiple(1, 254, 10)
     print(len(players[0].multiples[0][0]))
