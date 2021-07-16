@@ -4,6 +4,7 @@ import random
 from itertools import combinations, combinations_with_replacement
 import functools
 
+
 # lis(16)->lis(4 * 4)
 def reshape_16(lis):
     res = [[] for _ in range(4)]
@@ -20,6 +21,10 @@ def comb(n, b):
     for i in range(1, b + 1):
         res //= i
     return res
+
+
+def axis_1D(axis):
+    return (axis//4, axis%4)
 
 
 def power(x, n):
@@ -181,6 +186,11 @@ class ComputePlayer(Player):
         self.keys = keys[:]
         self.keys = reshape_16(self.keys)
 
+    def set_key_column(self, num, shares):
+        assert len(shares)==4
+        for i in range(4):
+            self.keys[num][i] = shares[i]
+
     def set_texts(self, keys):
         self.texts = keys[:]
         self.texts = reshape_16(self.texts)
@@ -256,14 +266,15 @@ class ComputePlayer(Player):
         self.multiply_multiply_mask = value[:]
 
     # suitable to compute one-variable poly
-    def poly_multiple_local(self, constants, powers, global_z, multiple):
+    def poly_multiple_local(self, constants, powers, global_z, multiple, eff_dic=None):
         # calculate z^i
         z_powers = [global_z]
         max_power = max(powers)
         for i in range(max_power):
             z_powers.append(z_powers[i] * global_z)
         # calculate coefficient(containing constant and combination)
-        eff_dic = gen_comb_eff(powers)
+        if not eff_dic:
+            eff_dic = gen_comb_eff(powers)
         rank = [GF256(0)] * max_power
         for i in range(max_power):
             for j in range(len(constants)):
@@ -276,10 +287,21 @@ class ComputePlayer(Player):
         else:
             res1 = GF256(0)
         res2 = rank[0] * self.mac
+        print(multiple)
         for i in range(1, max_power):
             res1 += multiple[i-1][0] * rank[i]
             res2 += multiple[i-1][1] * rank[i]
         return (res1, res2)
+
+    def poly_multiple_parallel(self, constants, powers, multiples, eff_dic=None):
+        global_value = [self.broadcast[i]+self.other[i] for i in range(len(self.broadcast))]
+        res = []
+        if not eff_dic:
+            eff_dic = gen_comb_eff(powers)
+        print(len(global_value), len(multiples))
+        for i in range(len(global_value)):
+            res.append(self.poly_multiple_local(constants, powers, global_value[i],multiples[i], eff_dic))
+        return res
 
 
 class TrustedThirdPlayer(Player):
@@ -379,25 +401,24 @@ class TrustedThirdPlayer(Player):
         all_shares = [[] for _ in range(ComputePlayer.ComputeNum)]
         for i in range(repeat):
             secures = []
-            share_loop = [[] for _ in range(ComputePlayer.ComputeNum)]
 
             for j in range(number):
                 secures.append(gen_rand_gf256())
             tmp = secures[:] # record the value of degree i
-            for d in range(1, degree+1):
-                res = secures[:]  # record the value of all degrees
+            res = secures[:]  # record the value of all degrees
+            for d in range(1, degree):
                 if method == 0:
                     #res = [functools.reduce(lambda x, y: x*y, i) for i in combinations_with_replacement(secures, d)]
                     tmp = [x * y for x in tmp for y in secures]
                     res.extend(tmp)
                 else:
                     res = [functools.reduce(lambda x, y: x*y, i) for i in combinations(secures, d)]
-                res = [(i, i * self.mac_sum) for i in res]
-                res_share = self.calculate_share_mac(res)
-                for i in range(ComputePlayer.ComputeNum):
-                    share_loop[i].append(res_share[i])
+
+            res = [(i, i * self.mac_sum) for i in res]
+            res_share = self.calculate_share_mac(res)
+
             for i in range(ComputePlayer.ComputeNum):
-                all_shares[i].append(share_loop[i])
+                all_shares[i].append(res_share[i])
         if storage == 'memory':
             for i in range(ComputePlayer.ComputeNum):
                 ComputePlayer.ComputeList[i].set_multiples(all_shares[i])
@@ -419,15 +440,16 @@ class InputTTP(InputPlayer, TrustedThirdPlayer):
 if __name__ == '__main__':
     #print(gen_comb_eff([i for i in range(255)]))
     #print(generate_comb_eff([0, 127, 191, 223, 239, 247, 251, 253, 254]))
+
     a = TrustedThirdPlayer(rec_port=4000)
     b = InputPlayer(rec_port=10000)
     players = [ComputePlayer(rec_port=5000), ComputePlayer(rec_port=6000)]
     for p in players:
         p.generate_mac()
     b.generate_keys()
-    print(len(players[0].keys))
     a.generate_squares(8, 1)
     a.generate_beaver_triples(10)
-    a.generate_multiple(1, 254, 10, storage='file')
+    a.generate_multiple(1, 254, 10)
+    print(len(players[0].multiples[0][0]))
     multiply_mask = [gen_rand_gf256() for i in range(20)]
     print(players[0].beaver_multiply_parallel(multiply_mask, players[0].beaver_triples))
