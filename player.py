@@ -180,6 +180,13 @@ class ComputePlayer(Player):
         self.input_square = []
         self.shares = []
         self.temp = []
+        self.input_beaver = []
+        self.input_power = []
+
+    def power_init(self, values, power):
+        self.input_power = [[] for _ in range(len(values))]
+        for i in range(len(values)):
+            self.input_power[i] = [values[i] for _ in range(power)]
 
     def set_shares(self, shares):
         self.shares.extend(shares)
@@ -241,6 +248,10 @@ class ComputePlayer(Player):
             temp1 = value[0]
         temp2 = constant * self.mac + value[1]
         return (temp1, temp2)
+
+    def add_share_constant(self, s1, s2, constant):
+        return (constant*(s1[0]+s2[0]), constant*(s1[1]+s2[1]))
+
 
     def generate_mac(self, method='memory'):
         self.mac = gen_rand_gf256()
@@ -319,15 +330,19 @@ class ComputePlayer(Player):
         for i in range(degree):
             self.input_square[-1].append(self.input_square[-1][-1]*self.input_square[-1][-1])
         #print(len(self.input_square[-1]))
-        for i in range(degree):
+        for i in range(degree+1):
             self.input_square[-1][i] = self.add_constants(self.input_square[-1][i], square[i])
 
-    def gen_input_square_parallel(self, square, degree):
+    def gen_input_square_parallel(self, square, degree, max_power):
         self.input_square = []
         global_z = self.after_broadcast()
+        self.power_init(global_z, max_power)
         assert (len(global_z) == len(square))
         for i in range(len(global_z)):
             self.gen_input_square(global_z[i], square[i], degree)
+            for j in range(degree+1):
+                self.input_power[i][pow(2, j)-1] = self.input_square[-1][j]
+
 
 
 class TrustedThirdPlayer(Player):
@@ -466,7 +481,9 @@ class InputTTP(InputPlayer, TrustedThirdPlayer):
 if __name__ == '__main__':
     #print(gen_comb_eff([i for i in range(255)]))
     #print(generate_comb_eff([0, 127, 191, 223, 239, 247, 251, 253, 254]))
-
+    x = [i for i in range(8)]
+    for i in range(1, 8):
+        print(x[i])
     a = TrustedThirdPlayer(rec_port=4000)
     b = InputPlayer(rec_port=10000)
     players = [ComputePlayer(rec_port=5000), ComputePlayer(rec_port=6000)]
