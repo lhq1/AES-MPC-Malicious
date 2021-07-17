@@ -3,6 +3,13 @@ import datetime
 from threading import Thread
 
 
+def process_number(process):
+    if process == 0:
+        return 16
+    else:
+        return 4
+
+
 def broadcast():
     players = ComputePlayer.ComputeList
     #print(players[0].rec_port, players[1].rec_port)
@@ -21,7 +28,7 @@ def broadcast():
     t2.join()
 
 
-# P0 send P0.braodcast to P1
+# P0 send P0.broadcast to P1
 def send(P0, P1):
     t1 = Thread(target=P1.prep_rec, args=())
     t2 = Thread(target=P0.send_num, args=(P0.broadcast, P1.ip, P1.rec_port))
@@ -45,7 +52,7 @@ def poly_multiple(players, constants, powers, process):
         if process == 0:
             p.current_multiple = pop(p.multiples, 16)
             p.temp = []
-            print(len(p.current_multiple))
+
             for i in range(4):
                 for j in range(4):
                     p.temp.append(p.texts[i][j][0]-p.current_multiple[4*i+j][0][0])
@@ -55,7 +62,6 @@ def poly_multiple(players, constants, powers, process):
             p.set_broadcast(p.keys[i][3][0]-p.current_multiple[i][0][0] for i in range(4))
     broadcast()
     for p in players:
-        print(len(p.current_multiple))
         res = p.poly_multiple_parallel(constants, powers, p.current_multiple)
         if process == 0:
             p.set_texts(res)
@@ -71,6 +77,104 @@ def sbox(players, process):
         0, 127, 191, 223, 239, 247, 251, 253, 254
     ]
     poly_multiple(players, constants, powers, process)
+
+
+def generate_sbox_input_square(players, process, degree=7, max_power=254):
+    for p in players:
+        if process == 0:
+            p.current_square = pop(p.squares, 16)
+            p.temp = []
+            for i in range(4):
+                for j in range(4):
+                    p.temp.append(p.texts[i][j][0] - p.current_square[4*i+j][0][0])
+            p.set_broadcast(p.temp)
+        else:
+            p.current_square = pop(p.squares, 4)
+            p.set_broadcast([p.keys[i][3][0] - p.current_square[i][0][0] for i in range(4)])
+    broadcast()
+    for p in players:
+        p.gen_input_square_parallel(p.current_square, degree, max_power)
+
+
+def beaver_multiplication(players, save_pos, process):
+    for p in players:
+        num = len(p.input_beaver)//2
+        assert num == len(save_pos) * process_number(process)
+        p.current_beaver_triple = pop(p.beaver_triples, num)
+        p.temp = []
+        for i in range(num):
+            p.temp.append(p.input_beaver[2*i]-p.current_beaver_triple[i][0][0])
+            p.temp.append(p.input_beaver[2*i+1]-p.current_beaver_triple[i][1][0])
+        p.set_broadcast(p.temp)
+    broadcast()
+    for p in players:
+        p.product = p.beaver_multiply_parallel(p.after_broadcast(), p.current_beaver_triple)
+        for i in range(process_number(process)):
+            for j in range(len(save_pos)):
+                p.input_power[i][save_pos[j]] = p.product[len(save_pos)*i+j]
+
+
+def sbox_sqaure_optimized(players, process):
+    constants = [
+        0x63, 0x8F, 0xB5, 0x01, 0xF4, 0x25, 0xF9, 0x09, 0x05
+    ]
+    powers = [0, 127, 191, 223, 239, 247, 251, 253, 254]
+    generate_sbox_input_square(players, process)
+    for p in players:
+        p.length = len(p.input_square)
+        p.input_beaver = []
+        for i in range(p.length):
+            p.input_beaver.extend([p.input_power[i][0][0], p.input_power[i][1][0],
+                                   p.input_power[i][63][0], p.input_power[i][127][0]])
+    beaver_multiplication(players, [2, 191], process)
+    for p in players:
+        p.input_beaver = []
+        for i in range(p.length):
+            p.input_beaver.extend([p.input_power[i][2][0], p.input_power[i][3][0],
+                                   p.input_power[i][31][0], p.input_power[i][191][0]])
+    beaver_multiplication(players, [6, 223], process)
+    for p in players:
+        p.input_beaver = []
+        for i in range(p.length):
+            p.input_beaver.extend([p.input_power[i][6][0], p.input_power[i][7][0],
+                                   p.input_power[i][15][0], p.input_power[i][223][0]])
+    beaver_multiplication(players, [14, 239], process)
+    for p in players:
+        p.input_beaver = []
+        for i in range(p.length):
+            p.input_beaver.extend([p.input_power[i][14][0], p.input_power[i][15][0],
+                                   p.input_power[i][7][0], p.input_power[i][239][0],
+                                   p.input_power[i][14][0], p.input_power[i][223][0],
+                                   p.input_power[i][6][0], p.input_power[i][239][0]])
+    beaver_multiplication(players, [30, 247, 238, 246], process)
+    for p in players:
+        p.input_beaver = []
+        for i in range(p.length):
+            p.input_beaver.extend([p.input_power[i][30][0], p.input_power[i][31][0],
+                                   p.input_power[i][3][0], p.input_power[i][247][0],
+                                   p.input_power[i][30][0], p.input_power[i][191][0],
+                                   p.input_power[i][2][0], p.input_power[i][247][0]])
+    beaver_multiplication(players, [62, 251, 222, 250], process)
+    for p in players:
+        p.input_beaver = []
+        for i in range(p.length):
+            p.input_beaver.extend([p.input_power[i][62][0], p.input_power[i][63][0],
+                                   p.input_power[i][1][0], p.input_power[i][251][0],
+                                   p.input_power[i][62][0], p.input_power[i][127][0],
+                                   p.input_power[i][0][0], p.input_power[i][251][0]])
+    beaver_multiplication(players, [126, 253, 190, 252], process)
+    for p in players:
+        if p.compute_no == 0:
+            p.temp = [(GF256(constants[0]), GF256(constants[0])*p.mac) for _ in range(process_number(process))]
+        else:
+            p.temp = [(GF256(0), GF256(constants[0])*p.mac) for _ in range(process_number(process))]
+        for i in range(process_number(process)):
+            for j in range(1, len(constants)):
+                p.temp[i] = p.add_share_constant(p.temp[i], p.input_power[i][powers[j]-1], GF256(constants[j]))
+        if process == 0:
+            p.set_texts(p.temp)
+        else:
+            p.set_key_column(3, p.temp)
 
 
 def sbox_inv_multiple(players, process):
@@ -102,12 +206,12 @@ if __name__ == '__main__':
 
     a = TrustedThirdPlayer(rec_port=4000)
     b = InputPlayer(rec_port=10000)
-    players = [ComputePlayer(rec_port=5000), ComputePlayer(rec_port=6000)]
+    players = [ComputePlayer(rec_port=23000), ComputePlayer(rec_port=24000)]
     for p in players:
         p.generate_mac()
     b.generate_keys()
-    a.generate_squares(8, 1)
-    a.generate_beaver_triples(10)
+    a.generate_squares(8, 100)
+    a.generate_beaver_triples(1000)
     a.generate_multiple(1, 254, 100)
     b.generate_keys()
     b.generate_texts()
@@ -118,4 +222,6 @@ if __name__ == '__main__':
         0, 127, 191, 223, 239, 247, 251, 253, 254
     ]
     poly_multiple(players, constants, powers, 0)
+    generate_sbox_input_square(players, 0)
+    sbox_sqaure_optimized(players, 0)
 
