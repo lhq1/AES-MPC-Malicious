@@ -1,0 +1,26 @@
+Malicious
+Encode
+Method = 0(multiple)
+overall time 3.4017460346221924
+overall broadcast time 0.5722582340240479
+overall multiple time 2.7015743255615234
+overall sbox time 3.3226921558380127
+
+Method = 1(Beaver triple)
+overall time 0.639153242111206
+overall broadcast time 0.30086302757263184
+overall Beaver time 0.20900368690490723
+overall sbox time 0.5766417980194092
+
+Decode
+Method = 0(multiple)
+overall time 12.856559038162231
+overall broadcast time 0.0937039852142334
+overall multiple time 11.867191791534424
+overall sbox time 11.992140054702759
+
+Method = 1(Beaver triple)
+overall time 14.389294624328613
+overall broadcast time 9.589870691299438
+overall multiple time 0
+overall sbox time 13.543283939361572
