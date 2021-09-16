@@ -39,6 +39,7 @@ def broadcast():
     t1.join()
     t2.join()
     time1 = time.time()
+
     broadcast_time += time1-time0
 
 
@@ -400,7 +401,7 @@ if __name__ == '__main__':
     global multiple_time
     a = TrustedThirdPlayer(rec_port=4000)
     b = InputPlayer(rec_port=10000)
-    players = [ComputePlayer(rec_port=25000), ComputePlayer(rec_port=40000)]
+    players = [ComputePlayer(rec_port=35000), ComputePlayer(rec_port=45000)]
     method = 1
     for p in players:
         p.generate_mac()
@@ -413,6 +414,7 @@ if __name__ == '__main__':
 
     b.generate_keys()
     b.generate_texts()
+    print('start MPC-AES')
     st = time.time()
 
     #AES_encode(players, method)
@@ -420,5 +422,8 @@ if __name__ == '__main__':
     et = time.time()
     print("overall time", et-st)
     print("overall broadcast time", broadcast_time)
-    print('overall multiple time', ComputePlayer.multiple_time)
+    if method == 0:
+        print('overall multiple time', ComputePlayer.multiple_time)
+    else:
+        print("overall Beaver time", ComputePlayer.Beaver_time)
     print('overall sbox time', sbox_time)
