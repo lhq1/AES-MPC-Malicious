@@ -1,23 +1,24 @@
 Malicious
 Encode
 Method = 0(multiple)
-overall time 3.4017460346221924
-overall broadcast time 0.5722582340240479
-overall multiple time 2.7015743255615234
-overall sbox time 3.3226921558380127
+overall time 3.5415711402893066
+overall broadcast time 0.048050880432128906
+overall multiple time 3.371009111404419
+overall sbox time 3.4416329860687256
 
 Method = 1(Beaver triple)
-overall time 0.639153242111206
-overall broadcast time 0.30086302757263184
-overall Beaver time 0.20900368690490723
-overall sbox time 0.5766417980194092
+overall time 1.6316993236541748
+overall broadcast time 1.2055854797363281
+overall Beaver time 0.20206713676452637
+overall sbox time 1.5326764583587646
+
 
 Decode
 Method = 0(multiple)
-overall time 12.856559038162231
-overall broadcast time 0.0937039852142334
-overall multiple time 11.867191791534424
-overall sbox time 11.992140054702759
+overall time 15.992885112762451
+overall broadcast time 0.11975526809692383
+overall multiple time 14.843076705932617
+overall sbox time 14.982755899429321
 
 Method = 1(Beaver triple)
 overall time 22.90322995185852
