@@ -20,7 +20,7 @@ overall multiple time 11.867191791534424
 overall sbox time 11.992140054702759
 
 Method = 1(Beaver triple)
-overall time 14.389294624328613
-overall broadcast time 9.589870691299438
-overall multiple time 0
-overall sbox time 13.543283939361572
+overall time 22.90322995185852
+overall broadcast time 16.742931842803955
+overall Beaver time 3.0625526905059814
+overall sbox time 21.91437530517578
