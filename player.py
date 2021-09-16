@@ -163,6 +163,7 @@ class ComputePlayer(Player):
     ComputeNum = 0
     ComputeList = []
     multiple_time = 0
+    Beaver_time = 0
 
     def __init__(self, ip='localhost', rec_port=5000):
         super().__init__(ip, rec_port)
@@ -279,11 +280,14 @@ class ComputePlayer(Player):
     # multiply_mask -- (x1-a1, y1-b1,x2-a2,y2-b2,...)
     # triple -- (([a1],[b1],[c1]), ([a2],[b2],[c2]), ...)
     def beaver_multiply_parallel(self, multiply_mask,  triple):
+        t0 = time.time()
         assert (2 * len(triple) == len(multiply_mask))
         res = []
         for i in range(len(triple)):
             product = self.beaver_multiply_local(multiply_mask[2 * i], multiply_mask[2* i + 1], triple[i])
             res.append(product)
+        t1 = time.time()
+        ComputePlayer.Beaver_time += t1 - t0
         return res
 
     def set_multiply_mask(self, value):
@@ -351,7 +355,6 @@ class ComputePlayer(Player):
             self.gen_input_square(global_z[i], square[i], degree)
             for j in range(degree+1):
                 self.input_power[i][pow(2, j)-1] = self.input_square[-1][j]
-
 
 
 class TrustedThirdPlayer(Player):
